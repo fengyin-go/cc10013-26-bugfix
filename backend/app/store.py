@@ -6,13 +6,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.seed import SEED_ROWS
+from app.seed import SEED_ROWS, SUPPORT_ROWS
 
 
 class Store:
     def __init__(self) -> None:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+        }
+        # 支撑表（转换数据集、转换审计等）只在模块内部使用，不参与运营概览的模块统计，
+        # 否则概览页会冒出一些不属于业务模块的英文表名。
+        self._support: dict[str, list[dict[str, Any]]] = {
+            name: [dict(row) for row in rows] for name, rows in SUPPORT_ROWS.items()
         }
 
     def module_names(self) -> list[str]:
@@ -23,6 +28,16 @@ class Store:
 
     def find(self, module: str, entry_id: int) -> dict[str, Any] | None:
         for row in self.rows(module):
+            if int(row.get("id", 0)) == entry_id:
+                return row
+        return None
+
+    def support_rows(self, name: str) -> list[dict[str, Any]]:
+        """读取支撑表；与业务模块分开存放，不进入概览统计。"""
+        return self._support.setdefault(name, [])
+
+    def find_support(self, name: str, entry_id: int) -> dict[str, Any] | None:
+        for row in self.support_rows(name):
             if int(row.get("id", 0)) == entry_id:
                 return row
         return None
